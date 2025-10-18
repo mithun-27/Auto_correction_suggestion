@@ -1,0 +1,61 @@
+# --- Python / FastAPI ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+*.log
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Tools / caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+.cache/
+
+# Env files / secrets
+.env
+.env.*
+*.env
+
+# HuggingFace / Transformers caches (local)
+huggingface/
+hf_cache/
+transformers_cache/
+models/
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Node (in case you later add a frontend build)
+node_modules/
+*.tsbuildinfo
+
+# IDE / Editors
+.vscode/
+.idea/
+*.code-workspace
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Misc
+*.bak
+*.tmp

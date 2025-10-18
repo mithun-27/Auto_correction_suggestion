@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" x-data="app()">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Autocorrection & Suggestion</title>
+  <link rel="icon" href="/favicon.svg" />
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js for tiny reactivity -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    /* subtle glass effect */
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+    .chip {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(0,0,0,0.08);
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+    }
+    .chip:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+  <header class="max-w-5xl mx-auto px-4 pt-8">
+    <div class="flex items-center gap-3">
+      <img src="/favicon.svg" class="h-8 w-8" alt="logo">
+      <h1 class="text-2xl font-semibold">AI Autocorrection & Auto-Suggestion</h1>
+    </div>
+    <p class="text-slate-300 mt-2">Fast, offline-friendly autocorrect + smart next-word suggestions.</p>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Left: editor -->
+      <section class="glass rounded-2xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-medium text-slate-900">Your Text</h2>
+          <div class="text-xs text-slate-600" x-text="status"></div>
+        </div>
+
+        <textarea
+          x-model="input"
+          @input.debounce.200ms="runAll"
+          placeholder="Type or paste text…"
+          class="w-full h-56 md:h-72 p-4 rounded-xl text-slate-900 bg-white/90 border focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        ></textarea>
+
+        <div class="mt-4 flex gap-3">
+          <button @click="runAll"
+            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow text-white">
+            Correct & Suggest
+          </button>
+          <button @click="applyCorrection"
+            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow text-white">
+            Apply Correction
+          </button>
+          <button @click="copyOutput"
+            class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl shadow text-white">
+            Copy Output
+          </button>
+        </div>
+      </section>
+
+      <!-- Right: results -->
+      <section class="glass rounded-2xl p-5 shadow-xl">
+        <h2 class="text-lg font-medium text-slate-900 mb-3">Autocorrect Output</h2>
+        <div class="bg-white/90 text-slate-900 rounded-xl p-4 min-h-[6rem]" x-text="corrected || '—'"></div>
+
+        <h3 class="text-sm font-semibold text-slate-900 mt-5">Changed Tokens</h3>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <template x-for="(tok, idx) in changedTokens" :key="idx">
+            <span class="chip bg-white/90 border-slate-300 text-slate-800">
+              <span class="font-semibold" x-text="tok[0]"></span>
+              <span class="px-1">→</span>
+              <span x-text="tok[1]"></span>
+            </span>
+          </template>
+          <span x-show="!changedTokens.length" class="text-slate-500 text-sm">No changes</span>
+        </div>
+
+        <h2 class="text-lg font-medium text-slate-900 mt-6">Next-Word Suggestions</h2>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <template x-for="(sug, idx) in suggestions" :key="idx">
+            <button class="chip bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                    @click="appendSuggestion(sug)"
+                    x-text="sug"></button>
+          </template>
+          <span x-show="!suggestions.length" class="text-slate-500 text-sm">Type some context to get suggestions</span>
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-8 text-center text-slate-400 text-sm">
+      Built with FastAPI + Tailwind + a tiny n-gram model. GitHub: <a href="https://github.com/mithun-27" class="text-indigo-500 hover:underline">mithun-27</a>
+    </footer>
+  </main>
+
+  <script>
+    function app() {
+      const API = (path) => `${location.origin}${path}`; // works when served by FastAPI
+
+      return {
+        input: "",
+        corrected: "",
+        changedTokens: [],
+        suggestions: [],
+        status: "idle",
+
+        async runAll() {
+          const text = this.input.trim();
+          if (!text) {
+            this.corrected = "";
+            this.changedTokens = [];
+            this.suggestions = [];
+            return;
+          }
+          this.status = "working…";
+
+          try {
+            const [c, s] = await Promise.all([
+              fetch(API('/api/correct'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+              }).then(r => r.json()),
+              fetch(API('/api/suggest'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ context: text, top_k: 6 })
+              }).then(r => r.json())
+            ]);
+
+            this.corrected = c.corrected_text ?? "";
+            this.changedTokens = (c.tokens || []).filter(t => t[0] !== t[1]);
+            this.suggestions = s.suggestions ?? [];
+            this.status = "done";
+          } catch (e) {
+            console.error(e);
+            this.status = "error";
+            alert("Something went wrong. Is the backend running?");
+          }
+        },
+
+        applyCorrection() {
+          if (this.corrected) {
+            this.input = this.corrected;
+            this.runAll();
+          }
+        },
+
+        appendSuggestion(word) {
+          if (!this.input.endsWith(" ") && this.input.length) this.input += " ";
+          this.input += word + " ";
+          this.runAll();
+        },
+
+        async copyOutput() {
+          const text = this.corrected || this.input || "";
+          if (!text) return;
+          await navigator.clipboard.writeText(text);
+          alert("Copied!");
+        },
+      }
+    }
+  </script>
+</body>
+</html>
