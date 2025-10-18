@@ -113,10 +113,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ### Autosuggestion:
 <img width="1919" height="867" alt="image" src="https://github.com/user-attachments/assets/45629f82-8311-44ac-8b9f-af51a908a66b" />
 
----
-## 📄 License
-
-**MIT License** – Free to use & modify with credit.  
-**Author:** _Mithun_ |
-
+**NOTE**: Don't worry about the **LOGO**, You can import a SVG logo in the faviocon.svg
+---  
+# Author: _Mithun_ 
 ---
